@@ -46,6 +46,22 @@ class TestResultStatus(str, Enum):
 TestResultStatus.__test__ = False
 
 
+class EvidenceStatus(str, Enum):
+    """High-level status of normalized runner evidence."""
+
+    SUCCESSFUL = "successful"
+    TEST_FAILURES = "test_failures"
+    COLLECTION_ERROR = "collection_error"
+    TIMEOUT = "timeout"
+    STARTUP_ERROR = "startup_error"
+    EXECUTION_ERROR = "execution_error"
+    MALFORMED = "malformed"
+    UNKNOWN = "unknown"
+
+
+EvidenceStatus.__test__ = False
+
+
 @dataclass(frozen=True)
 class InspectionFinding:
     """A structured issue found while inspecting a project."""
@@ -125,3 +141,27 @@ class TestRunResult:
 
 
 TestRunResult.__test__ = False
+
+
+@dataclass(frozen=True)
+class NormalizedTestEvidence:
+    """Bounded, parser-derived evidence from one controlled pytest run."""
+
+    evidence_status: EvidenceStatus
+    runner_status: Optional[RunnerStatus]
+    project_path: Optional[str]
+    exit_code: Optional[int] = None
+    passed: Optional[int] = None
+    failed: Optional[int] = None
+    skipped: Optional[int] = None
+    xfailed: Optional[int] = None
+    xpassed: Optional[int] = None
+    errors: Optional[int] = None
+    summary_recognized: bool = False
+    stdout: str = ""
+    stderr: str = ""
+    output_truncated: bool = False
+    parser_warnings: tuple[str, ...] = ()
+
+
+NormalizedTestEvidence.__test__ = False

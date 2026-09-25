@@ -49,3 +49,8 @@ Every stage returns either a typed success value or a typed failure category. Fa
 
 The separation prevents a beginner-friendly UI from becoming an arbitrary code execution tool, makes results testable in isolation, and preserves the distinction between observed test facts and interpretation. A single controlled project keeps the MVP feasible for a solo developer and safe for a hackathon demonstration.
 
+The evidence normalizer recognizes only pytest summary lines composed of comma-separated
+counts (`passed`, `failed`, `skipped`, `xfailed`, `xpassed`, and `error/errors`) followed
+by `in <duration>s`. It uses the last recognized summary when multiple lines are present.
+Other pytest versions, plugins, warnings, and malformed or truncated output may remain
+partially unknown; counts are left unset rather than inferred from keywords.
