@@ -9,6 +9,7 @@ from app.models.validation_models import (
     EvidenceStatus,
     IntegrationResult,
     IntegrationStatus,
+    InspectionStatus,
     ObservedTestResult,
     ProjectInspectionResult,
     RunnerStatus,
@@ -78,9 +79,14 @@ def run_controlled_validation(
         )
 
     inspection = inspect_project(project_path, allowed_root)
-    if inspection.status.value != "complete":
+    if inspection.status is not InspectionStatus.COMPLETE:
+        integration_status = (
+            IntegrationStatus.INSPECTION_ERROR
+            if inspection.status is InspectionStatus.INSPECTION_ERROR
+            else IntegrationStatus.BLOCKED
+        )
         return IntegrationResult(
-            status=IntegrationStatus.BLOCKED,
+            status=integration_status,
             inspection=inspection,
             classification=_unknown_classification(
                 "Validation was blocked before pytest execution."

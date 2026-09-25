@@ -8,7 +8,8 @@
 4. **AST analyzer** — parses Python files with `ast` and returns test/module metadata without importing project code.
 5. **Test-plan validator** — converts UI selections into a validated internal plan.
 6. **Controlled pytest runner** — starts only the approved test command with fixed process policy.
-7. **Evidence normalizer** — bounds output, records process facts, and writes JSON evidence.
+7. **Evidence normalizer** — bounds output, records process facts, and produces structured
+   `NormalizedTestEvidence`.
 8. **Deterministic classifier** — maps evidence to a documented outcome.
 9. **Report presenter** — renders evidence, classification, limitations, and optional suggestions separately.
 10. **Optional explanation adapter** — may produce clearly labeled suggestions; it cannot modify evidence or status.
@@ -27,10 +28,15 @@ Each component owns one validation boundary. The UI never builds commands, the A
 6. Accept and validate a user selection.
 7. Display the final test plan for confirmation.
 8. Execute the fixed pytest runner under limits.
-9. Normalize process output into versioned JSON evidence.
+9. Normalize process output into structured `NormalizedTestEvidence`.
 10. Classify the outcome deterministically.
 11. Render evidence and classification.
 12. Optionally render suggestions in a separate section.
+
+JSON serialization and report schema versioning are deferred to the report/presentation
+layer; the current normalizer does not serialize evidence to JSON. The normalizer's
+output limit is a safety net for direct callers, while the controlled runner performs
+the primary stdout/stderr bounding before normalization.
 
 ## Error-handling flow
 

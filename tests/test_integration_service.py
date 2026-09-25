@@ -5,6 +5,7 @@ from app.models.validation_models import (
     EvidenceStatus,
     IntegrationStatus,
     InspectionStatus,
+    ProjectInspectionResult,
     RunnerStatus,
     TestResultStatus,
     TestRunResult,
@@ -40,6 +41,23 @@ def test_blocks_invalid_project_before_runner(tmp_path: Path) -> None:
 
     assert result.status is IntegrationStatus.BLOCKED
     assert result.runner is None
+    run.assert_not_called()
+
+
+def test_preserves_inspection_error_status_before_runner(tmp_path: Path) -> None:
+    inspection = ProjectInspectionResult(
+        status=InspectionStatus.INSPECTION_ERROR,
+        project_path=str(tmp_path),
+        allowed_root=str(tmp_path),
+    )
+    with patch(
+        "app.services.integration_service.inspect_project",
+        return_value=inspection,
+    ), patch("app.services.integration_service.run_pytest") as run:
+        result = run_controlled_validation(tmp_path, tmp_path)
+
+    assert result.status is IntegrationStatus.INSPECTION_ERROR
+    assert result.inspection is inspection
     run.assert_not_called()
 
 
