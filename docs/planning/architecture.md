@@ -11,7 +11,9 @@
 7. **Evidence normalizer** — bounds output, records process facts, and produces structured
    `NormalizedTestEvidence`.
 8. **Deterministic classifier** — maps evidence to a documented outcome.
-9. **Report presenter** — renders evidence, classification, limitations, and optional suggestions separately.
+9. **Report presenter** — converts `IntegrationResult` into an immutable
+   `ValidationReport`, rendering evidence, classification, limitations, and optional
+   suggestions separately.
 10. **Optional explanation adapter** — may produce clearly labeled suggestions; it cannot modify evidence or status.
 
 ## Responsibilities
@@ -30,13 +32,16 @@ Each component owns one validation boundary. The UI never builds commands, the A
 8. Execute the fixed pytest runner under limits.
 9. Normalize process output into structured `NormalizedTestEvidence`.
 10. Classify the outcome deterministically.
-11. Render evidence and classification.
-12. Optionally render suggestions in a separate section.
+11. Project the integration result into a structured `ValidationReport`.
+12. Render evidence and classification.
+13. Optionally render suggestions in a separate section.
 
 JSON serialization and report schema versioning are deferred to the report/presentation
 layer; the current normalizer does not serialize evidence to JSON. The normalizer's
 output limit is a safety net for direct callers, while the controlled runner performs
 the primary stdout/stderr bounding before normalization.
+The report presenter also does not serialize JSON; it preserves observed fields for a
+future report/export or UI layer.
 
 ## Error-handling flow
 

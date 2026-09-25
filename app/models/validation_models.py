@@ -75,6 +75,23 @@ class IntegrationStatus(str, Enum):
 IntegrationStatus.__test__ = False
 
 
+class ReportStatus(str, Enum):
+    """User-facing status categories for one validation report."""
+
+    SUCCESSFUL = "successful"
+    TEST_FAILURES = "test_failures"
+    COLLECTION_ERROR = "collection_error"
+    BLOCKED = "blocked"
+    INSPECTION_ERROR = "inspection_error"
+    RUNNER_ERROR = "runner_error"
+    TIMEOUT = "timeout"
+    MALFORMED = "malformed"
+    UNKNOWN = "unknown"
+
+
+ReportStatus.__test__ = False
+
+
 @dataclass(frozen=True)
 class InspectionFinding:
     """A structured issue found while inspecting a project."""
@@ -193,3 +210,37 @@ class IntegrationResult:
 
 
 IntegrationResult.__test__ = False
+
+
+@dataclass(frozen=True)
+class ValidationReport:
+    """Immutable user-facing projection of observed validation evidence.
+
+    This model intentionally contains no AI-generated explanation and does not
+    serialize itself. JSON schema construction belongs to a later presentation
+    or report-export layer.
+    """
+
+    status: ReportStatus
+    integration_status: Optional[IntegrationStatus] = None
+    project_path: Optional[str] = None
+    inspection_status: Optional[InspectionStatus] = None
+    runner_status: Optional[RunnerStatus] = None
+    evidence_status: Optional[EvidenceStatus] = None
+    exit_code: Optional[int] = None
+    passed: Optional[int] = None
+    failed: Optional[int] = None
+    skipped: Optional[int] = None
+    xfailed: Optional[int] = None
+    xpassed: Optional[int] = None
+    errors: Optional[int] = None
+    summary_recognized: bool = False
+    stdout: str = ""
+    stderr: str = ""
+    output_truncated: bool = False
+    warnings: tuple[str, ...] = ()
+    classification: Optional[ClassifiedFailureInfo] = None
+    error_message: Optional[str] = None
+
+
+ValidationReport.__test__ = False
