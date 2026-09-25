@@ -2,7 +2,8 @@
 
 ## Components
 
-1. **Streamlit presentation layer** — displays project state, test selection, progress, report sections, and limitations.
+1. **Streamlit presentation layer** — displays the fixed approved project scope,
+   validation controls, report sections, and limitations without constructing commands.
 2. **Configuration and policy layer** — defines the single demo project, approved paths, test allowlist, limits, and report schema version.
 3. **Project inspector** — performs containment checks and reads approved files.
 4. **AST analyzer** — parses Python files with `ast` and returns test/module metadata without importing project code.
@@ -35,6 +36,10 @@ Each component owns one validation boundary. The UI never builds commands, the A
 11. Project the integration result into a structured `ValidationReport`.
 12. Render evidence and classification.
 13. Optionally render suggestions in a separate section.
+
+The current Streamlit entry point exposes only the controlled calculator project as
+an explicit selector. It does not accept arbitrary project uploads or command text;
+the integration service remains the sole execution coordinator.
 
 JSON serialization and report schema versioning are deferred to the report/presentation
 layer; the current normalizer does not serialize evidence to JSON. The normalizer's
