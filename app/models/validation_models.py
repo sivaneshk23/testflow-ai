@@ -62,6 +62,19 @@ class EvidenceStatus(str, Enum):
 EvidenceStatus.__test__ = False
 
 
+class IntegrationStatus(str, Enum):
+    """Overall status of one coordinated validation workflow."""
+
+    COMPLETED = "completed"
+    BLOCKED = "blocked"
+    INVALID_INPUT = "invalid_input"
+    INSPECTION_ERROR = "inspection_error"
+    RUNNER_ERROR = "runner_error"
+
+
+IntegrationStatus.__test__ = False
+
+
 @dataclass(frozen=True)
 class InspectionFinding:
     """A structured issue found while inspecting a project."""
@@ -165,3 +178,18 @@ class NormalizedTestEvidence:
 
 
 NormalizedTestEvidence.__test__ = False
+
+
+@dataclass(frozen=True)
+class IntegrationResult:
+    """Immutable result spanning inspection, execution, evidence, and classification."""
+
+    status: IntegrationStatus
+    inspection: Optional[ProjectInspectionResult] = None
+    runner: Optional[TestRunResult] = None
+    evidence: Optional[NormalizedTestEvidence] = None
+    classification: Optional[ClassifiedFailureInfo] = None
+    error_message: Optional[str] = None
+
+
+IntegrationResult.__test__ = False
