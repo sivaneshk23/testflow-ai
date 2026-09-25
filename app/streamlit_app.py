@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from app.models.validation_models import ReportStatus, ValidationReport
+from app.services.explanation_presenter import present_advisory_guidance
 from app.services.integration_service import run_controlled_validation
 from app.services.report_presenter import present_validation_report
 
@@ -87,6 +88,13 @@ def _display_report(st: Any, report: ValidationReport) -> None:
         st.write(report.classification.evidence_summary)
         if not report.classification.root_cause_supported:
             st.caption("No root cause was established from the observed evidence.")
+
+    advisory_guidance = present_advisory_guidance(report)
+    if advisory_guidance:
+        st.subheader("Advisory next steps")
+        st.caption("Advisory guidance only; not a confirmed root cause.")
+        for guidance in advisory_guidance:
+            st.text(guidance)
 
     if report.warnings:
         st.subheader("Parser warnings")
