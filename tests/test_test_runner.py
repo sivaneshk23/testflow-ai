@@ -91,6 +91,26 @@ def test_rejects_symlinked_parent_directory(tmp_path: Path) -> None:
     assert result.status is RunnerStatus.SYMLINK_NOT_ALLOWED
 
 
+def test_rejects_nested_symlinked_python_file_before_starting_process(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path, "def test_passes():\n    assert True\n")
+    target = tmp_path / "target.py"
+    target.write_text("def test_linked():\n    assert False\n", encoding="utf-8")
+    link = project / "test_linked.py"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("file symlinks are unavailable in this environment")
+
+    with patch("app.services.test_runner.subprocess.Popen") as popen:
+        result = run_pytest(project, tmp_path)
+
+    assert result.status is RunnerStatus.PROJECT_POLICY_REJECTED
+    assert result.error_message == "Symlinked Python files are not permitted."
+    popen.assert_not_called()
+
+
 def test_rejects_invalid_allowed_root(tmp_path: Path) -> None:
     project = _project(tmp_path, "def test_passes():\n    assert True\n")
 

@@ -145,6 +145,16 @@ def _has_forbidden_startup_hook(project: Path) -> bool:
     return False
 
 
+def _has_symlinked_python_file(project: Path) -> bool:
+    try:
+        return any(
+            candidate.is_symlink()
+            for candidate in project.rglob("*.py")
+        )
+    except OSError:
+        return True
+
+
 def _read_stream(
     stream: object,
     limit: int,
@@ -229,6 +239,12 @@ def run_pytest(
     if validation_error is not None:
         return validation_error
     assert project is not None
+    if _has_symlinked_python_file(project):
+        return _result(
+            RunnerStatus.PROJECT_POLICY_REJECTED,
+            str(project),
+            error_message="Symlinked Python files are not permitted.",
+        )
     if _has_forbidden_startup_hook(project):
         return _result(
             RunnerStatus.PROJECT_POLICY_REJECTED,
