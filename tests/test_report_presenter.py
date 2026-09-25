@@ -33,6 +33,7 @@ def test_presents_success_and_observed_counts() -> None:
             passed=9,
             skipped=1,
             xfailed=1,
+            xpassed=1,
             parser_warnings=("A parser note.",),
         ),
     )
@@ -40,9 +41,12 @@ def test_presents_success_and_observed_counts() -> None:
     report = present_validation_report(result)
 
     assert report.status is ReportStatus.SUCCESSFUL
+    assert report.integration_status is IntegrationStatus.COMPLETED
+    assert report.inspection_status is None
     assert report.passed == 9
     assert report.skipped == 1
     assert report.xfailed == 1
+    assert report.xpassed == 1
     assert report.warnings == ("A parser note.",)
 
 
@@ -87,7 +91,44 @@ def test_presents_blocked_and_inspection_error_separately() -> None:
     )
 
     assert blocked.status is ReportStatus.BLOCKED
+    assert blocked.integration_status is IntegrationStatus.BLOCKED
     assert inspection_error.status is ReportStatus.INSPECTION_ERROR
+    assert inspection_error.integration_status is IntegrationStatus.INSPECTION_ERROR
+    assert inspection_error.inspection_status is InspectionStatus.INSPECTION_ERROR
+
+
+def test_runner_error_without_evidence_remains_runner_error() -> None:
+    report = present_validation_report(
+        IntegrationResult(
+            status=IntegrationStatus.RUNNER_ERROR,
+            runner=TestRunResult(
+                status=RunnerStatus.EXECUTION_ERROR,
+                project_path="calculator_project",
+                error_message="The controlled process exited unexpectedly.",
+            ),
+            error_message="",
+        )
+    )
+
+    assert report.status is ReportStatus.RUNNER_ERROR
+    assert report.integration_status is IntegrationStatus.RUNNER_ERROR
+    assert report.runner_status is RunnerStatus.EXECUTION_ERROR
+    assert report.error_message == ""
+
+
+def test_execution_error_evidence_maps_to_runner_error() -> None:
+    report = present_validation_report(
+        IntegrationResult(
+            status=IntegrationStatus.RUNNER_ERROR,
+            evidence=NormalizedTestEvidence(
+                evidence_status=EvidenceStatus.EXECUTION_ERROR,
+                runner_status=RunnerStatus.EXECUTION_ERROR,
+                project_path="calculator_project",
+            ),
+        )
+    )
+
+    assert report.status is ReportStatus.RUNNER_ERROR
 
 
 def test_presents_timeout_and_runner_errors() -> None:
@@ -118,6 +159,7 @@ def test_presents_timeout_and_runner_errors() -> None:
     )
 
     assert timeout.status is ReportStatus.TIMEOUT
+    assert timeout.integration_status is IntegrationStatus.RUNNER_ERROR
     assert startup.status is ReportStatus.RUNNER_ERROR
     assert startup.error_message == "startup failed"
 
@@ -140,6 +182,20 @@ def test_presents_malformed_unknown_and_raw_bounded_evidence() -> None:
     assert malformed.output_truncated is True
     assert invalid.status is ReportStatus.MALFORMED
     assert isinstance(invalid, ValidationReport)
+
+
+def test_presents_invalid_input_as_malformed_with_explicit_details() -> None:
+    report = present_validation_report(
+        IntegrationResult(
+            status=IntegrationStatus.INVALID_INPUT,
+            error_message="Project path and allowed root must be path values.",
+        )
+    )
+
+    assert report.status is ReportStatus.MALFORMED
+    assert report.integration_status is IntegrationStatus.INVALID_INPUT
+    assert report.error_message == "Project path and allowed root must be path values."
+    assert report.warnings == ("The validation request was malformed.",)
 
 
 def test_preserves_unknown_evidence_and_does_not_invent_counts() -> None:

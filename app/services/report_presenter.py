@@ -25,6 +25,8 @@ def _report_status(result: IntegrationResult) -> ReportStatus:
         return ReportStatus.INSPECTION_ERROR
     if result.status is IntegrationStatus.BLOCKED:
         return ReportStatus.BLOCKED
+    if result.status is IntegrationStatus.RUNNER_ERROR and result.evidence is None:
+        return ReportStatus.RUNNER_ERROR
 
     evidence = result.evidence
     if evidence is None:
@@ -105,6 +107,11 @@ def present_validation_report(result: IntegrationResult | object) -> ValidationR
         ),
         warnings=warnings,
         classification=result.classification,
-        error_message=result.error_message
-        or (runner.error_message if runner is not None else None),
+        error_message=(
+            result.error_message
+            if result.error_message is not None
+            else runner.error_message
+            if runner is not None
+            else None
+        ),
     )
