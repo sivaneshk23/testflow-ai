@@ -26,6 +26,8 @@ class RunnerStatus(str, Enum):
     MISSING_PROJECT = "missing_project"
     NOT_A_DIRECTORY = "not_a_directory"
     OUTSIDE_ALLOWED_ROOT = "outside_allowed_root"
+    SYMLINK_NOT_ALLOWED = "symlink_not_allowed"
+    PROJECT_POLICY_REJECTED = "project_policy_rejected"
     TIMEOUT = "timeout"
     STARTUP_ERROR = "startup_error"
     EXECUTION_ERROR = "execution_error"
@@ -103,7 +105,7 @@ class TestRunResult:
 
     status: RunnerStatus
     project_path: Optional[str]
-    command_metadata: tuple[str, ...] = ("python", "-m", "pytest", "-q")
+    command_metadata: tuple[str, ...] = ("-m", "pytest", "-q", "-s")
     exit_code: Optional[int] = None
     stdout: str = ""
     stderr: str = ""

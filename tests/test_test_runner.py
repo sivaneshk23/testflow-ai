@@ -1,10 +1,11 @@
 from pathlib import Path
+from io import BytesIO
 from unittest.mock import patch
 
 import pytest
 
 from app.models.validation_models import RunnerStatus
-from app.services.test_runner import run_pytest
+from app.services.test_runner import _PYTEST_ARGUMENTS, run_pytest
 
 
 def _project(tmp_path: Path, source: str) -> Path:
@@ -68,7 +69,26 @@ def test_rejects_symlink_project_escape(tmp_path: Path) -> None:
 
     result = run_pytest(link, allowed_root)
 
-    assert result.status is RunnerStatus.OUTSIDE_ALLOWED_ROOT
+    assert result.status is RunnerStatus.SYMLINK_NOT_ALLOWED
+
+
+def test_rejects_symlinked_parent_directory(tmp_path: Path) -> None:
+    target_parent = tmp_path / "target-parent"
+    target_parent.mkdir()
+    project = target_parent / "project"
+    project.mkdir()
+    (project / "test_demo.py").write_text(
+        "def test_passes():\n    assert True\n", encoding="utf-8"
+    )
+    link_parent = tmp_path / "linked-parent"
+    try:
+        link_parent.symlink_to(target_parent, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks are unavailable in this environment")
+
+    result = run_pytest(link_parent / "project", tmp_path)
+
+    assert result.status is RunnerStatus.SYMLINK_NOT_ALLOWED
 
 
 def test_rejects_invalid_allowed_root(tmp_path: Path) -> None:
@@ -129,6 +149,46 @@ def test_reports_process_startup_failure(tmp_path: Path) -> None:
     assert result.status is RunnerStatus.STARTUP_ERROR
     assert result.exit_code is None
     assert result.error_message == "The controlled pytest process could not be started."
+
+
+def test_rejects_conftest_before_starting_process(tmp_path: Path) -> None:
+    project = _project(tmp_path, "def test_passes():\n    assert True\n")
+    (project / "conftest.py").write_text("", encoding="utf-8")
+
+    with patch("app.services.test_runner.subprocess.Popen") as popen:
+        result = run_pytest(project, tmp_path)
+
+    assert result.status is RunnerStatus.PROJECT_POLICY_REJECTED
+    popen.assert_not_called()
+
+
+def test_reports_exact_fixed_pytest_arguments(tmp_path: Path) -> None:
+    project = _project(tmp_path, "def test_passes():\n    assert True\n")
+
+    with patch("app.services.test_runner.subprocess.Popen") as popen:
+        process = popen.return_value
+        process.stdout = BytesIO()
+        process.stderr = BytesIO()
+        process.poll.return_value = 0
+        process.returncode = 0
+        process.wait.return_value = 0
+        result = run_pytest(project, tmp_path)
+
+    assert result.command_metadata == _PYTEST_ARGUMENTS
+    assert popen.call_args.args[0][1:] == list(_PYTEST_ARGUMENTS)
+
+
+def test_does_not_add_pythonpath_and_disables_user_site() -> None:
+    from app.services.test_runner import _safe_environment
+    import sysconfig
+
+    environment = _safe_environment()
+
+    assert "PYTHONPATH" not in environment
+    if (Path(sysconfig.get_path("purelib")) / "pytest").is_dir():
+        assert environment["PYTHONNOUSERSITE"] == "1"
+    else:
+        assert "PYTHONNOUSERSITE" not in environment
 
 
 def test_limits_captured_output(tmp_path: Path) -> None:

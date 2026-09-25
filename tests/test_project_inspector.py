@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.models.validation_models import InspectionStatus
 from app.services.project_inspector import inspect_project
 
@@ -72,3 +74,17 @@ def test_empty_project_is_complete_with_no_files(tmp_path: Path) -> None:
     assert result.python_files == ()
     assert result.findings == ()
 
+
+def test_rejects_project_symlink_before_resolution(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    link = tmp_path / "link"
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks are unavailable in this environment")
+
+    result = inspect_project(link, tmp_path)
+
+    assert result.status is InspectionStatus.INVALID_PATH
+    assert result.findings[0].code == "SYMLINK_NOT_ALLOWED"

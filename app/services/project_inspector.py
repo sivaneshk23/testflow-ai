@@ -34,6 +34,18 @@ def _resolve_path(value: str | Path) -> Path:
     return Path(value).expanduser().resolve(strict=False)
 
 
+def _has_symlink_component(value: str | Path) -> bool:
+    raw = Path(value).expanduser()
+    if not raw.is_absolute():
+        raw = Path.cwd() / raw
+    current = Path(raw.anchor)
+    for part in raw.parts[1:]:
+        current /= part
+        if current.is_symlink():
+            return True
+    return False
+
+
 def _is_within(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)
@@ -104,6 +116,14 @@ def inspect_project(
 ) -> ProjectInspectionResult:
     """Inspect permitted Python files without importing or executing project code."""
     try:
+        if _has_symlink_component(allowed_root) or _has_symlink_component(
+            project_path
+        ):
+            return _invalid_result(
+                InspectionStatus.INVALID_PATH,
+                "Symlinked allowed roots and project paths are not permitted.",
+                code="SYMLINK_NOT_ALLOWED",
+            )
         root = _resolve_path(allowed_root)
         project = _resolve_path(project_path)
     except (TypeError, ValueError, OSError, RuntimeError) as error:
@@ -204,4 +224,3 @@ def inspect_project(
         python_files=tuple(files),
         findings=tuple(findings),
     )
-

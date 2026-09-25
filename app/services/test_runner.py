@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import math
 import os
-import site
 import subprocess
 import sys
+import sysconfig
 import threading
 import time
 from pathlib import Path
@@ -14,7 +14,7 @@ from typing import Optional
 
 from app.models.validation_models import RunnerStatus, TestRunResult
 
-_COMMAND_METADATA = ("python", "-m", "pytest", "-q", "-s")
+_PYTEST_ARGUMENTS = ("-m", "pytest", "-q", "-s")
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 _DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024
 _CHUNK_SIZE = 4096
@@ -41,6 +41,18 @@ def _resolve(value: str | Path) -> Path:
     return Path(value).expanduser().resolve(strict=False)
 
 
+def _has_symlink_component(value: str | Path) -> bool:
+    raw = Path(value).expanduser()
+    if not raw.is_absolute():
+        raw = Path.cwd() / raw
+    current = Path(raw.anchor)
+    for part in raw.parts[1:]:
+        current /= part
+        if current.is_symlink():
+            return True
+    return False
+
+
 def _within(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)
@@ -54,6 +66,14 @@ def _validate_paths(
     allowed_root: str | Path,
 ) -> tuple[Optional[Path], Optional[Path], Optional[TestRunResult]]:
     try:
+        if _has_symlink_component(allowed_root) or _has_symlink_component(
+            project_path
+        ):
+            return None, None, _result(
+                RunnerStatus.SYMLINK_NOT_ALLOWED,
+                None,
+                error_message="Symlinked allowed roots and project paths are not permitted.",
+            )
         root = _resolve(allowed_root)
         project = _resolve(project_path)
     except (TypeError, ValueError, OSError, RuntimeError) as error:
@@ -88,26 +108,41 @@ def _validate_paths(
             project_text,
             error_message="The project path is not a directory.",
         )
-    if project.is_symlink():
-        return None, None, _result(
-            RunnerStatus.OUTSIDE_ALLOWED_ROOT,
-            project_text,
-            error_message="Symlinked project directories are not permitted.",
-        )
     return root, project, None
 
 
 def _safe_environment() -> dict[str, str]:
     environment: dict[str, str] = {}
-    for name in ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP"):
+    for name in (
+        "PATH",
+        "SystemRoot",
+        "WINDIR",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "APPDATA",
+    ):
         value = os.environ.get(name)
         if value:
             environment[name] = value
-    # The configured interpreter's user-site packages contain pytest here.
-    # Only this package location is passed; unrelated environment variables
-    # are intentionally excluded from the child process.
-    environment["PYTHONPATH"] = site.getusersitepackages()
+    interpreter_site = Path(sysconfig.get_path("purelib"))
+    if (interpreter_site / "pytest").is_dir():
+        environment["PYTHONNOUSERSITE"] = "1"
     return environment
+
+
+def _has_forbidden_startup_hook(project: Path) -> bool:
+    forbidden_names = {"conftest.py", "sitecustomize.py", "usercustomize.py"}
+    try:
+        for candidate in project.rglob("*.py"):
+            if candidate.name in forbidden_names:
+                return True
+            source = candidate.read_text(encoding="utf-8")
+            if "pytest_plugins" in source:
+                return True
+    except (OSError, UnicodeError):
+        return True
+    return False
 
 
 def _read_stream(
@@ -174,7 +209,7 @@ def run_pytest(
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     max_output_bytes: int = _DEFAULT_MAX_OUTPUT_BYTES,
 ) -> TestRunResult:
-    """Run only ``python -m pytest -q`` in a validated project directory."""
+    """Run fixed pytest arguments in the trusted, hook-free demo project."""
     if (
         not isinstance(timeout_seconds, (int, float))
         or isinstance(timeout_seconds, bool)
@@ -194,11 +229,19 @@ def run_pytest(
     if validation_error is not None:
         return validation_error
     assert project is not None
+    if _has_forbidden_startup_hook(project):
+        return _result(
+            RunnerStatus.PROJECT_POLICY_REJECTED,
+            str(project),
+            error_message=(
+                "The project contains a prohibited pytest or Python startup hook."
+            ),
+        )
 
     start = time.monotonic()
     try:
         process = subprocess.Popen(
-            [sys.executable, "-m", "pytest", "-q", "-s"],
+            [sys.executable, *_PYTEST_ARGUMENTS],
             cwd=str(project),
             env=_safe_environment(),
             stdout=subprocess.PIPE,
@@ -235,6 +278,7 @@ def run_pytest(
     return TestRunResult(
         status=status,
         project_path=str(project),
+        command_metadata=_PYTEST_ARGUMENTS,
         exit_code=process.returncode,
         stdout=decoded_stdout,
         stderr=decoded_stderr,

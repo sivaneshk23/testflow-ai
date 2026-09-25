@@ -9,6 +9,12 @@
 - Treat source, filenames, tracebacks, and test output as untrusted display content.
 - Do not collect or store secrets, credentials, personal information, client data, or social-media data.
 - Document the trust boundary and all execution limitations in the UI and project documentation.
+- The MVP runner is limited to the trusted synthetic demo project. Projects containing
+  `conftest.py`, `pytest_plugins`, `sitecustomize.py`, or `usercustomize.py` are rejected
+  before pytest starts. The runner disables user-site imports when pytest is available
+  in the interpreter site-packages; otherwise it preserves only the Windows variables
+  needed for the supported interpreter to locate its installed pytest package. This is
+  policy enforcement, not OS-level sandboxing.
 
 ## Reliability
 
@@ -48,4 +54,3 @@
 - Make status and error text available to assistive technologies.
 - Avoid unexplained icons and provide text alternatives.
 - Keep interactions keyboard-accessible where Streamlit permits.
-
