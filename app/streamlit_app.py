@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from app.models.validation_models import ReportStatus, ValidationReport
 from app.services.explanation_presenter import present_advisory_guidance
 from app.services.integration_service import run_controlled_validation
 from app.services.report_presenter import present_validation_report
+
+_DEMO_PROJECTS_ROOT = _REPOSITORY_ROOT / "demo_projects"
+_CALCULATOR_PROJECT = _DEMO_PROJECTS_ROOT / "calculator_project"
+_PROJECT_LABEL = "Controlled calculator demo"
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 _DEMO_PROJECTS_ROOT = _REPOSITORY_ROOT / "demo_projects"
